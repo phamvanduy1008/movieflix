@@ -1,43 +1,40 @@
 import Link from 'next/link';
 
-export async function generateStaticParams() {
-  const res = await fetch(
-    `https://api.themoviedb.org/3/movie/popular?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US`
-  );
-  const data = await res.json();
 
-  return data.results.slice(0, 10).map((movie: any) => ({
-    id: movie.id.toString(),
-  }));
-}
 
 export default async function MovieDetail({ params }: { params: { id: string } }) {
-  const { id } = params;
+  const id = (await params).id; 
 
   const res = await fetch(
     `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US&append_to_response=credits,videos,similar`
   );
   const movie = await res.json();
+  // Lấy thông tin cast
 
   const cast = movie.credits?.cast?.slice(0, 6) || [];
   
+  // Lấy trailer (nếu có)
   const trailer = movie.videos?.results?.find(
     (video: any) => video.type === "Trailer" && video.site === "YouTube"
   );
-
+  
+  // Phim tương tự
   const similarMovies = movie.similar?.results?.slice(0, 4) || [];
 
+  // Format thời lượng phim
   const formatRuntime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   };
 
+  // Format ngày phát hành
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
 
+  // Format doanh thu
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -45,7 +42,8 @@ export default async function MovieDetail({ params }: { params: { id: string } }
       maximumFractionDigits: 0
     }).format(amount);
   };
-  
+
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100">
       {/* Header/Nav */}
