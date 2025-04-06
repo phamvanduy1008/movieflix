@@ -1,40 +1,47 @@
+'use client';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { use } from 'react';
 
+export default function MovieDetail({ params }: { params: Promise<{ id: string }> }) {
+  const unwrappedParams = use(params); 
+  const [movie, setMovie] = useState<any>(null);
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
 
+  useEffect(() => {
+    const fetchMovie = async () => {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/movie/${unwrappedParams.id}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US&append_to_response=credits,videos,similar`
+      );
+      const data = await res.json();
+      setMovie(data);
+    };
+    fetchMovie();
+  }, [unwrappedParams.id]);
 
-export default async function MovieDetail({ params }: { params: { id: string } }) {
-  const id = (await params).id; 
-
-  const res = await fetch(
-    `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US&append_to_response=credits,videos,similar`
-  );
-  const movie = await res.json();
-  // Lấy thông tin cast
+  if (!movie) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
 
   const cast = movie.credits?.cast?.slice(0, 6) || [];
-  
-  // Lấy trailer (nếu có)
   const trailer = movie.videos?.results?.find(
     (video: any) => video.type === "Trailer" && video.site === "YouTube"
   );
-  
-  // Phim tương tự
   const similarMovies = movie.similar?.results?.slice(0, 4) || [];
 
-  // Format thời lượng phim
+  const toggleTrailerModal = () => {
+    setIsTrailerOpen(!isTrailerOpen);
+  };
+
   const formatRuntime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   };
 
-  // Format ngày phát hành
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
 
-  // Format doanh thu
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -43,10 +50,9 @@ export default async function MovieDetail({ params }: { params: { id: string } }
     }).format(amount);
   };
 
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100">
-      {/* Header/Nav */}
+      {/* Header */}
       <header className="bg-black/80 backdrop-blur-md sticky top-0 z-10 border-b border-gray-800">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/">
@@ -60,21 +66,19 @@ export default async function MovieDetail({ params }: { params: { id: string } }
         </div>
       </header>
 
-      {/* Movie hero section with backdrop */}
+      {/* Hero Section */}
       <div
         className="relative w-full h-[50vh] lg:h-[70vh] bg-cover bg-center"
         style={{
           backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})`,
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-r to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black to-transparent"></div>
         
-        {/* Movie info overlay */}
-        <div className="container mx-auto px-4 h-full flex items-end pb-16">
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* Poster */}
-            <div className="hidden md:block w-64 h-96 rounded-lg overflow-hidden shadow-2xl shadow-black/60">
+        <div className="container mx-auto px-4 h-full flex items-end pb-16 relative z-10">
+          <div className="flex flex-col md:flex-row gap-8 w-full">
+            <div className="hidden md:block w-64 h-96 rounded-lg overflow-hidden shadow-2xl shadow-black/60 flex-shrink-0">
               <img 
                 src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} 
                 alt={movie.title}
@@ -82,7 +86,6 @@ export default async function MovieDetail({ params }: { params: { id: string } }
               />
             </div>
             
-            {/* Details */}
             <div className="max-w-2xl">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {movie.genres?.map((genre: any) => (
@@ -95,7 +98,7 @@ export default async function MovieDetail({ params }: { params: { id: string } }
                 ))}
               </div>
               
-              <h1 className="text-4xl md:text-5xl  font-bold mb-2">{movie.title}</h1>
+              <h1 className="text-4xl md:text-5xl font-bold mb-2">{movie.title}</h1>
               
               {movie.tagline && (
                 <p className="text-lg text-gray-400 italic mb-4">"{movie.tagline}"</p>
@@ -116,15 +119,18 @@ export default async function MovieDetail({ params }: { params: { id: string } }
                 )}
               </div>
               
-              <div className="flex gap-4">
-              <button className="bg-red-600 cursor-pointer hover:bg-red-700 px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-              </svg>
-              Watch Trailer
-            </button>
+              <div className="flex gap-4 z-20 relative">
+                <button 
+                  onClick={toggleTrailerModal} 
+                  className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  Watch Trailer
+                </button>
 
-                <button className="bg-gray-800 cursor-pointer hover:bg-gray-700 px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2">
+                <button className="bg-gray-800 hover:bg-gray-700 px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                   </svg>
@@ -132,23 +138,39 @@ export default async function MovieDetail({ params }: { params: { id: string } }
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
-      {/* Main content */}
+      {isTrailerOpen && trailer && (
+        <div onClick={toggleTrailerModal}  className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="relative bg-black w-11/12 md:w-8/12 lg:w-6/12 p-4 rounded-lg">
+            <button 
+              onClick={toggleTrailerModal} 
+              className="absolute  cursor-pointer top-2 right-2 text-white font-bold text-2xl z-50"
+            >
+              X
+            </button>
+            <iframe
+              src={`https://www.youtube.com/embed/${trailer.key}`}
+              title={`${movie.title} Trailer`}
+              allowFullScreen
+              className="w-full h-[450px] rounded-lg"
+            ></iframe>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left column - Movie details */}
+          {/* Left Column */}
           <div className="w-full lg:w-2/3">
-            {/* Overview */}
             <section className="mb-12">
               <h2 className="text-2xl font-bold mb-4">Overview</h2>
               <p className="text-gray-300 leading-relaxed">{movie.overview}</p>
             </section>
             
-            {/* Cast */}
             {cast.length > 0 && (
               <section className="mb-12">
                 <h2 className="text-2xl font-bold mb-4">Top Cast</h2>
@@ -176,7 +198,6 @@ export default async function MovieDetail({ params }: { params: { id: string } }
               </section>
             )}
             
-            {/* Trailer */}
             {trailer && (
               <section className="mb-12">
                 <h2 className="text-2xl font-bold mb-4">Trailer</h2>
@@ -191,7 +212,6 @@ export default async function MovieDetail({ params }: { params: { id: string } }
               </section>
             )}
             
-            {/* Similar Movies */}
             {similarMovies.length > 0 && (
               <section className="mb-8">
                 <div className="flex items-center justify-between mb-4">
@@ -234,7 +254,7 @@ export default async function MovieDetail({ params }: { params: { id: string } }
             )}
           </div>
           
-          {/* Right column - Additional Info */}
+          {/* Right Column */}
           <div className="w-full lg:w-1/3">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-6 sticky top-24">
               <h2 className="text-xl font-bold mb-4 border-b border-gray-700 pb-2">Movie Info</h2>
@@ -277,7 +297,7 @@ export default async function MovieDetail({ params }: { params: { id: string } }
               </ul>
               
               <div className="mt-8">
-                <button className="bg-green-600 hover:bg-green-700 cursor-pointer text-white w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                <button className="bg-green-600 hover:bg-green-700 text-white w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                   </svg>
